@@ -8,7 +8,6 @@ export async function GET(req: NextRequest) {
   try {
     await requireAdmin();
     const sql = getSql();
-    await ensureDefaultTemplateSeeded();
 
     const statusParam = req.nextUrl.searchParams.get("status") || "all";
     const searchParam = (req.nextUrl.searchParams.get("search") || "").trim();
@@ -52,26 +51,27 @@ export async function GET(req: NextRequest) {
       ${orderSql}
     `;
 
-    const applications = (await sql.query(
-      queryText,
-      values
-    )) as unknown as ApplicationRecord[];
-
-    const statsRows = (await sql`
-      SELECT
-        COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE application_status = 'Pending')::int AS pending,
-        COUNT(*) FILTER (WHERE application_status = 'Approved')::int AS approved,
-        COUNT(*) FILTER (WHERE application_status = 'Rejected')::int AS rejected,
-        COUNT(*) FILTER (WHERE generated_card_front_file_id IS NOT NULL)::int AS generated_cards
-      FROM applications
-    `) as Array<{
-      total: number;
-      pending: number;
-      approved: number;
-      rejected: number;
-      generated_cards: number;
-    }>;
+    const [applications, statsRows] = (await Promise.all([
+      sql.query(queryText, values),
+      sql`
+        SELECT
+          COUNT(*)::int AS total,
+          COUNT(*) FILTER (WHERE application_status = 'Pending')::int AS pending,
+          COUNT(*) FILTER (WHERE application_status = 'Approved')::int AS approved,
+          COUNT(*) FILTER (WHERE application_status = 'Rejected')::int AS rejected,
+          COUNT(*) FILTER (WHERE generated_card_front_file_id IS NOT NULL)::int AS generated_cards
+        FROM applications
+      `,
+    ])) as unknown as [
+      ApplicationRecord[],
+      Array<{
+        total: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+        generated_cards: number;
+      }>
+    ];
 
     return NextResponse.json({
       applications,

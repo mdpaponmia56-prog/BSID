@@ -25,12 +25,18 @@ export async function GET(
     const customName = req.nextUrl.searchParams.get("filename");
     const safeName = (customName || file.file_name).replace(/["\r\n]/g, "");
 
+    const ifNoneMatch = req.headers.get("if-none-match");
+    if (ifNoneMatch === `"${id}"`) {
+      return new NextResponse(null, { status: 304 });
+    }
+
     return new NextResponse(new Uint8Array(file.data), {
       status: 200,
       headers: {
         "Content-Type": file.mime_type,
         "Content-Length": String(file.data.byteLength),
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "private, max-age=86400, immutable",
+        "ETag": `"${id}"`,
         "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${safeName}"`,
       },
     });

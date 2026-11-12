@@ -221,7 +221,7 @@ export default function LiveIdCardPreview({
   maxSideWidth,
   side = "both",
   highlightField = null,
-  qrSealUrl = "/api/admin/assets/qr-seal",
+  qrSealUrl = "/templates/qr-center-seal.png",
 }: LiveIdCardPreviewProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -248,30 +248,33 @@ export default function LiveIdCardPreview({
 
   useEffect(() => {
     let active = true;
-    const payload =
-      template.typography_configuration?.qrMode === "verification_json"
-        ? JSON.stringify({
-            bs_id: data.bs_id,
-            name: data.full_name,
-            blood_group: data.blood_group,
-            contact: data.contact_number,
-            org: "Bangladesh Scouts",
-          })
-        : `BS ID: ${data.bs_id}\nName: ${data.full_name}\nBlood Group: ${data.blood_group}\nContact: ${data.contact_number}\nhttps://scouts.gov.bd`;
+    const timer = setTimeout(() => {
+      const payload =
+        template.typography_configuration?.qrMode === "verification_json"
+          ? JSON.stringify({
+              bs_id: data.bs_id,
+              name: data.full_name,
+              blood_group: data.blood_group,
+              contact: data.contact_number,
+              org: "Bangladesh Scouts",
+            })
+          : `BS ID: ${data.bs_id}\nName: ${data.full_name}\nBlood Group: ${data.blood_group}\nContact: ${data.contact_number}\nhttps://scouts.gov.bd`;
 
-    QRCode.toDataURL(payload, {
-      width: 300,
-      margin: 1,
-      errorCorrectionLevel: "H",
-      color: { dark: "#000000", light: "#FFFFFF" },
-    })
-      .then((url) => {
-        if (active) setQrDataUrl(url);
+      QRCode.toDataURL(payload, {
+        width: 180,
+        margin: 1,
+        errorCorrectionLevel: "M",
+        color: { dark: "#000000", light: "#FFFFFF" },
       })
-      .catch(() => {});
+        .then((url) => {
+          if (active) setQrDataUrl(url);
+        })
+        .catch(() => {});
+    }, 150);
 
     return () => {
       active = false;
+      clearTimeout(timer);
     };
   }, [
     data.bs_id,

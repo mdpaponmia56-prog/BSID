@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import {
   ensureDefaultTemplateSeeded,
   getSql,
+  invalidateTemplateCache,
   logAudit,
 } from "@/lib/db";
 import { handleAdminApiError } from "@/lib/api-helpers";
@@ -133,6 +134,7 @@ export async function PUT(req: NextRequest) {
       LIMIT 30
     `) as unknown as TemplateVersionRecord[];
 
+    invalidateTemplateCache();
     return NextResponse.json({ template: updated, versions });
   } catch (err) {
     return handleAdminApiError(err);

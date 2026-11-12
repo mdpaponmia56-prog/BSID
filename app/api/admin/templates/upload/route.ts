@@ -9,6 +9,7 @@ import { requireAdmin } from "@/lib/auth";
 import {
   ensureDefaultTemplateSeeded,
   getSql,
+  invalidateTemplateCache,
   logAudit,
   storeFile,
 } from "@/lib/db";
@@ -185,6 +186,7 @@ export async function POST(req: NextRequest) {
       LIMIT 30
     `) as unknown as TemplateVersionRecord[];
 
+    invalidateTemplateCache();
     return NextResponse.json({ template: updated, versions });
   } catch (err) {
     return handleAdminApiError(err);

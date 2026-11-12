@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { ensureDefaultTemplateSeeded, getSql, logAudit } from "@/lib/db";
+import {
+  ensureDefaultTemplateSeeded,
+  getSql,
+  invalidateTemplateCache,
+  logAudit,
+} from "@/lib/db";
 import { handleAdminApiError } from "@/lib/api-helpers";
 import { IdCardTemplateRecord, TemplateVersionRecord } from "@/lib/types";
 
@@ -114,6 +119,7 @@ export async function POST(req: NextRequest) {
       LIMIT 30
     `) as unknown as TemplateVersionRecord[];
 
+    invalidateTemplateCache();
     return NextResponse.json({ template: updated, versions });
   } catch (err) {
     return handleAdminApiError(err);

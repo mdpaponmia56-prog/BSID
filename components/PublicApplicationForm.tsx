@@ -26,6 +26,7 @@ import {
 import {
   BLOOD_GROUPS,
   BloodGroup,
+  DEFAULT_CARD_TEMPLATE,
   IdCardTemplateRecord,
 } from "@/lib/types";
 import LiveIdCardPreview from "@/components/LiveIdCardPreview";
@@ -81,7 +82,7 @@ export default function PublicApplicationForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
   const [previewTemplate, setPreviewTemplate] =
-    useState<IdCardTemplateRecord | null>(null);
+    useState<IdCardTemplateRecord>(DEFAULT_CARD_TEMPLATE);
   const [previewSide, setPreviewSide] = useState<"both" | "front" | "back">(
     "both"
   );

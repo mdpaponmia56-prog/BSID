@@ -301,6 +301,24 @@ export const DEFAULT_IMAGE_POSITION_CONFIG: ImageFieldConfig = {
 
 export const DEFAULT_TYPOGRAPHY_CONFIG: TypographyConfiguration = {
   availableFonts: ["Open Sans", "Merriweather"],
-  renderScale: 3,
+  renderScale: 2,
   qrMode: "dynamic_bs_id",
+};
+
+export const DEFAULT_CARD_TEMPLATE: IdCardTemplateRecord = {
+  id: "default-canva-template",
+  template_name: "Bangladesh Scouts Original Canva ID Card",
+  front_background_url: "/templates/template-front-default.png",
+  back_background_url: "/templates/template-back-default.png",
+  front_background_file_id: null,
+  back_background_file_id: null,
+  card_width: 591,
+  card_height: 1004,
+  text_position_configuration: DEFAULT_TEXT_POSITION_CONFIG,
+  image_position_configuration: DEFAULT_IMAGE_POSITION_CONFIG,
+  typography_configuration: DEFAULT_TYPOGRAPHY_CONFIG,
+  template_status: "Active",
+  version_number: 1,
+  created_date: "2026-01-01T00:00:00.000Z",
+  updated_date: "2026-01-01T00:00:00.000Z",
 };

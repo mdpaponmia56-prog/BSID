@@ -11,6 +11,33 @@ import {
 let cachedSql: ReturnType<typeof neon> | null = null;
 let cachedPool: Pool | null = null;
 
+export interface CachedFileRecord {
+  id: string;
+  file_name: string;
+  mime_type: string;
+  byte_size: number;
+  category: string;
+  is_public: boolean;
+  data: Buffer;
+}
+
+const fileCache = new Map<string, CachedFileRecord>();
+const MAX_FILE_CACHE_ENTRIES = 40;
+
+function setFileCache(item: CachedFileRecord) {
+  if (fileCache.size >= MAX_FILE_CACHE_ENTRIES) {
+    const firstKey = fileCache.keys().next().value;
+    if (firstKey) fileCache.delete(firstKey);
+  }
+  fileCache.set(item.id, item);
+}
+
+let cachedActiveTemplate: { record: IdCardTemplateRecord; expiresAt: number } | null = null;
+
+export function invalidateTemplateCache() {
+  cachedActiveTemplate = null;
+}
+
 export function getSql() {
   const url = process.env.DATABASE_URL;
   if (!url) {
@@ -64,21 +91,28 @@ export async function storeFile(params: {
   );
 
   const id = result.rows[0].id;
+  setFileCache({
+    id,
+    file_name: params.fileName,
+    mime_type: params.mimeType,
+    byte_size: params.data.byteLength,
+    category: params.category,
+    is_public: Boolean(params.isPublic),
+    data: params.data,
+  });
+
   return {
     id,
     url: `/api/admin/files/${id}`,
   };
 }
 
-export async function getStoredFile(id: string): Promise<{
-  id: string;
-  file_name: string;
-  mime_type: string;
-  byte_size: number;
-  category: string;
-  is_public: boolean;
-  data: Buffer;
-} | null> {
+export async function getStoredFile(id: string): Promise<CachedFileRecord | null> {
+  const cached = fileCache.get(id);
+  if (cached) {
+    return cached;
+  }
+
   const pool = getPool();
   const result = await pool.query<{
     id: string;
@@ -100,13 +134,20 @@ export async function getStoredFile(id: string): Promise<{
 
   if (!result.rows[0]) return null;
   const row = result.rows[0];
-  return {
+  const fileRecord: CachedFileRecord = {
     ...row,
     data: Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data),
   };
+  setFileCache(fileRecord);
+  return fileRecord;
 }
 
 export async function ensureDefaultTemplateSeeded(): Promise<IdCardTemplateRecord> {
+  const now = Date.now();
+  if (cachedActiveTemplate && now < cachedActiveTemplate.expiresAt) {
+    return cachedActiveTemplate.record;
+  }
+
   const sql = getSql();
   const existing = (await sql`
     SELECT *
@@ -117,6 +158,7 @@ export async function ensureDefaultTemplateSeeded(): Promise<IdCardTemplateRecor
   `) as unknown as IdCardTemplateRecord[];
 
   if (existing[0]) {
+    cachedActiveTemplate = { record: existing[0], expiresAt: now + 60_000 };
     return existing[0];
   }
 
@@ -128,6 +170,7 @@ export async function ensureDefaultTemplateSeeded(): Promise<IdCardTemplateRecor
   `) as unknown as IdCardTemplateRecord[];
 
   if (anyTemplate[0]) {
+    cachedActiveTemplate = { record: anyTemplate[0], expiresAt: now + 60_000 };
     return anyTemplate[0];
   }
 
@@ -232,6 +275,7 @@ export async function ensureDefaultTemplateSeeded(): Promise<IdCardTemplateRecor
     )
   `;
 
+  cachedActiveTemplate = { record: template, expiresAt: Date.now() + 60_000 };
   return template;
 }
 

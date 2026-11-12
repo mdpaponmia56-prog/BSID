@@ -1,3 +1,5 @@
+import fs from "fs/promises";
+import path from "path";
 import {
   ensureDefaultTemplateSeeded,
   getSql,
@@ -7,6 +9,58 @@ import {
 } from "./db";
 import { generateFullIdCardSet } from "./card-renderer";
 import { ApplicationRecord, IdCardTemplateRecord } from "./types";
+
+let defaultFrontBuf: Buffer | null = null;
+let defaultBackBuf: Buffer | null = null;
+
+async function getTemplateBuffers(template: IdCardTemplateRecord): Promise<{
+  front: Buffer;
+  back: Buffer;
+}> {
+  // Ultra-fast path: read from local memory/disk cache for default template
+  if (
+    template.template_name.includes("Original Canva") ||
+    !template.front_background_file_id ||
+    !template.back_background_file_id
+  ) {
+    if (!defaultFrontBuf || !defaultBackBuf) {
+      const [f, b] = await Promise.all([
+        fs
+          .readFile(
+            path.join(process.cwd(), "public", "templates", "template-front-default.png")
+          )
+          .catch(() =>
+            fs.readFile(
+              path.join(process.cwd(), "assets", "templates", "template-front-default.png")
+            )
+          ),
+        fs
+          .readFile(
+            path.join(process.cwd(), "public", "templates", "template-back-default.png")
+          )
+          .catch(() =>
+            fs.readFile(
+              path.join(process.cwd(), "assets", "templates", "template-back-default.png")
+            )
+          ),
+      ]);
+      defaultFrontBuf = f;
+      defaultBackBuf = b;
+    }
+    return { front: defaultFrontBuf, back: defaultBackBuf };
+  }
+
+  const [frontBgFile, backBgFile] = await Promise.all([
+    getStoredFile(template.front_background_file_id),
+    getStoredFile(template.back_background_file_id),
+  ]);
+
+  if (!frontBgFile || !backBgFile) {
+    throw new Error("Template background files could not be loaded from storage.");
+  }
+
+  return { front: frontBgFile.data, back: backBgFile.data };
+}
 
 export async function generateAndSaveApplicationCards(params: {
   applicationId: string;
@@ -25,36 +79,28 @@ export async function generateAndSaveApplicationCards(params: {
     throw new Error("Application not found.");
   }
 
-  const template =
-    params.templateOverride ?? (await ensureDefaultTemplateSeeded());
-
   if (!app.photograph_file_id) {
     throw new Error("Applicant photograph file is missing.");
   }
 
-  const photoFile = await getStoredFile(app.photograph_file_id);
+  const [template, photoFile] = await Promise.all([
+    params.templateOverride ?? ensureDefaultTemplateSeeded(),
+    getStoredFile(app.photograph_file_id),
+  ]);
+
   if (!photoFile) {
     throw new Error("Applicant photograph could not be loaded from storage.");
   }
 
-  if (!template.front_background_file_id || !template.back_background_file_id) {
-    throw new Error("Active template background files are missing.");
-  }
-
-  const [frontBgFile, backBgFile] = await Promise.all([
-    getStoredFile(template.front_background_file_id),
-    getStoredFile(template.back_background_file_id),
-  ]);
-
-  if (!frontBgFile || !backBgFile) {
-    throw new Error("Template background files could not be loaded from storage.");
-  }
+  const { front: frontBgBuffer, back: backBgBuffer } = await getTemplateBuffers(
+    template
+  );
 
   const { frontPng, backPng, pdfBuffer } = await generateFullIdCardSet({
     application: app,
     template,
-    frontBackgroundBuffer: frontBgFile.data,
-    backBackgroundBuffer: backBgFile.data,
+    frontBackgroundBuffer: frontBgBuffer,
+    backBackgroundBuffer: backBgBuffer,
     photoBuffer: photoFile.data,
   });
 
