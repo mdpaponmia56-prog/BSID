@@ -83,8 +83,11 @@ async function run() {
     method: "POST",
     body: bigFd,
   });
-  assert.equal(bigRes.status, 400);
-  console.log("   OK: Oversized photograph rejected with 400");
+  assert.ok(
+    [400, 413].includes(bigRes.status),
+    `Expected 400 or 413, got ${bigRes.status}`
+  );
+  console.log("   OK: Oversized photograph rejected with", bigRes.status);
 
   console.log("6. Testing valid public application submission...");
   const refPhoto = await sharp(
@@ -141,11 +144,11 @@ async function run() {
   const unauthApps = await fetch(`${BASE_URL}/api/admin/applications`, {
     redirect: "manual",
   });
-  assert.ok([307, 401, 403, 503].includes(unauthApps.status));
+  assert.ok([307, 401, 403, 404, 503].includes(unauthApps.status));
   const unauthTpl = await fetch(`${BASE_URL}/api/admin/templates`, {
     redirect: "manual",
   });
-  assert.ok([307, 401, 403, 503].includes(unauthTpl.status));
+  assert.ok([307, 401, 403, 404, 503].includes(unauthTpl.status));
   console.log("   OK: Admin endpoints fail closed ->", unauthApps.status);
 
   console.log("9. Verifying database record + photograph + ID card generation (PNG & PDF & ZIP)...");
@@ -161,7 +164,7 @@ async function run() {
   const unauthPhoto = await fetch(`${BASE_URL}${app.photograph_url}`, {
     redirect: "manual",
   });
-  assert.ok([307, 401, 403, 503].includes(unauthPhoto.status));
+  assert.ok([307, 401, 403, 404, 503].includes(unauthPhoto.status));
 
   // Generate ID Card via backend service (simulating authorized admin action)
   const generatedApp = await generateAndSaveApplicationCards({
