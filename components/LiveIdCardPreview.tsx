@@ -148,7 +148,7 @@ function renderSingleSide(params: {
               alt="ID QR Code"
               className="w-full h-full object-contain"
             />
-            {qrCfg.showCenterSeal && (
+            {qrCfg.showCenterSeal && qrDataUrl !== "/templates/real-back-qr.png" && (
               <div
                 className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white flex items-center justify-center overflow-hidden"
                 style={{
@@ -247,35 +247,37 @@ export default function LiveIdCardPreview({
   }, [responsive]);
 
   useEffect(() => {
-    let active = true;
-    const timer = setTimeout(() => {
-      const payload =
-        template.typography_configuration?.qrMode === "verification_json"
-          ? JSON.stringify({
-              bs_id: data.bs_id,
-              name: data.full_name,
-              blood_group: data.blood_group,
-              contact: data.contact_number,
-              org: "Bangladesh Scouts",
-            })
-          : `BS ID: ${data.bs_id}\nName: ${data.full_name}\nBlood Group: ${data.blood_group}\nContact: ${data.contact_number}\nhttps://scouts.gov.bd`;
+    if (template.typography_configuration?.qrMode === "verification_json") {
+      let active = true;
+      const timer = setTimeout(() => {
+        const payload = JSON.stringify({
+          bs_id: data.bs_id,
+          name: data.full_name,
+          blood_group: data.blood_group,
+          contact: data.contact_number,
+          org: "Bangladesh Scouts",
+        });
 
-      QRCode.toDataURL(payload, {
-        width: 180,
-        margin: 1,
-        errorCorrectionLevel: "M",
-        color: { dark: "#000000", light: "#FFFFFF" },
-      })
-        .then((url) => {
-          if (active) setQrDataUrl(url);
+        QRCode.toDataURL(payload, {
+          width: 180,
+          margin: 1,
+          errorCorrectionLevel: "M",
+          color: { dark: "#000000", light: "#FFFFFF" },
         })
-        .catch(() => {});
-    }, 150);
+          .then((url) => {
+            if (active) setQrDataUrl(url);
+          })
+          .catch(() => {});
+      }, 150);
 
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    } else {
+      // Real official uploaded QR code with Bhawal Badre Alam Govt College Rover Scout emblem
+      setQrDataUrl("/templates/real-back-qr.png");
+    }
   }, [
     data.bs_id,
     data.full_name,

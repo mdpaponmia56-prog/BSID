@@ -12,6 +12,26 @@ import {
 
 let fontsRegistered = false;
 let cachedSealImg: Awaited<ReturnType<typeof loadImage>> | null = null;
+let cachedRealQrImg: Awaited<ReturnType<typeof loadImage>> | null = null;
+
+async function getRealQrImage() {
+  if (cachedRealQrImg) return cachedRealQrImg;
+  try {
+    const p = path.join(process.cwd(), "public", "templates", "real-back-qr.png");
+    const b = await fs.readFile(p);
+    cachedRealQrImg = await loadImage(b);
+    return cachedRealQrImg;
+  } catch {
+    try {
+      const p2 = path.join(process.cwd(), "assets", "templates", "real-back-qr.png");
+      const b2 = await fs.readFile(p2);
+      cachedRealQrImg = await loadImage(b2);
+      return cachedRealQrImg;
+    } catch {
+      return null;
+    }
+  }
+}
 
 async function getQrSealImage() {
   if (cachedSealImg) return cachedSealImg;
@@ -195,6 +215,20 @@ async function drawQrCode(
   const qrCfg = template.image_position_configuration.qrCode;
   if (!qrCfg?.enabled) return;
 
+  const drawX = qrCfg.x * scale;
+  const drawY = qrCfg.y * scale;
+  const drawW = qrCfg.width * scale;
+  const drawH = qrCfg.height * scale;
+
+  // Real official uploaded QR code with Bhawal Badre Alam Govt College emblem
+  if (template.typography_configuration?.qrMode !== "verification_json") {
+    const realQrImg = await getRealQrImage();
+    if (realQrImg) {
+      ctx.drawImage(realQrImg, drawX, drawY, drawW, drawH);
+      return;
+    }
+  }
+
   const size = Math.round(Math.min(qrCfg.width, qrCfg.height) * scale);
   const payload =
     template.typography_configuration?.qrMode === "verification_json"
@@ -219,9 +253,7 @@ async function drawQrCode(
   });
 
   const qrImg = await loadImage(qrBuf);
-  const drawX = qrCfg.x * scale;
-  const drawY = qrCfg.y * scale;
-  ctx.drawImage(qrImg, drawX, drawY, qrCfg.width * scale, qrCfg.height * scale);
+  ctx.drawImage(qrImg, drawX, drawY, drawW, drawH);
 
   if (qrCfg.showCenterSeal) {
     try {
