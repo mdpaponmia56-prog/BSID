@@ -28,8 +28,14 @@ export async function GET(
       );
     }
 
-    // Ensure generated files exist before download
+    const force =
+      req.nextUrl.searchParams.get("force") === "1" ||
+      req.nextUrl.searchParams.get("regenerate") === "1" ||
+      req.nextUrl.searchParams.get("fresh") === "1";
+
+    // Ensure generated files exist before download or regenerate if forced
     if (
+      force ||
       !app.generated_card_front_file_id ||
       !app.generated_card_back_file_id ||
       !app.generated_card_pdf_file_id
@@ -38,6 +44,7 @@ export async function GET(
         applicationId: app.id,
         adminId: admin.id,
         adminEmail: admin.email,
+        actionType: force ? "ID_CARD_FORCE_REGENERATED" : undefined,
       });
     }
 

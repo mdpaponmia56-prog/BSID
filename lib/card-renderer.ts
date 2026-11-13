@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import sharp from "sharp";
 import path from "path";
 import fs from "fs/promises";
+import syncFs from "fs";
 import {
   ApplicationRecord,
   IdCardTemplateRecord,
@@ -62,16 +63,77 @@ async function getQrSealImage() {
   }
 }
 
+function tryRegisterFontFile(relPaths: string[], familyName: string): boolean {
+  const roots = [
+    process.cwd(),
+    path.join(process.cwd(), ".."),
+    __dirname,
+    path.join(__dirname, ".."),
+    path.join(__dirname, "..", ".."),
+  ];
+
+  for (const rel of relPaths) {
+    for (const root of roots) {
+      const full = path.resolve(root, rel);
+      if (syncFs.existsSync(/*turbopackIgnore: true*/ full)) {
+        try {
+          const buf = syncFs.readFileSync(/*turbopackIgnore: true*/ full);
+          if (buf && buf.length > 0) {
+            GlobalFonts.register(buf, familyName);
+            return true;
+          }
+        } catch {
+          // Continue trying next path
+        }
+      }
+    }
+  }
+  return false;
+}
+
 function ensureFontsRegistered() {
-  if (fontsRegistered) return;
+  if (fontsRegistered && GlobalFonts.has("Open Sans") && GlobalFonts.has("Merriweather")) {
+    return;
+  }
+
+  // 1. Primary: TrueType fonts bundled directly in repo assets and public directories
+  const openSansLoaded = tryRegisterFontFile(
+    [
+      "assets/fonts/OpenSans.ttf",
+      "public/fonts/OpenSans.ttf",
+      ".next/server/assets/fonts/OpenSans.ttf",
+    ],
+    "Open Sans"
+  );
+
+  const merriweatherLoaded = tryRegisterFontFile(
+    [
+      "assets/fonts/Merriweather.ttf",
+      "public/fonts/Merriweather.ttf",
+      ".next/server/assets/fonts/Merriweather.ttf",
+    ],
+    "Merriweather"
+  );
+
+  // Also register system fallbacks so sans-serif and serif never draw blank on Linux
+  if (openSansLoaded) {
+    tryRegisterFontFile(
+      ["assets/fonts/OpenSans.ttf", "public/fonts/OpenSans.ttf"],
+      "sans-serif"
+    );
+  }
+  if (merriweatherLoaded) {
+    tryRegisterFontFile(
+      ["assets/fonts/Merriweather.ttf", "public/fonts/Merriweather.ttf"],
+      "serif"
+    );
+  }
+
+  // 2. Secondary fallback: fontsource woff2 packages if available
   const root = process.cwd();
   const fontMap: Array<{ relPath: string; family: string }> = [
     {
       relPath: "node_modules/@fontsource/open-sans/files/open-sans-latin-400-normal.woff2",
-      family: "Open Sans",
-    },
-    {
-      relPath: "node_modules/@fontsource/open-sans/files/open-sans-latin-500-normal.woff2",
       family: "Open Sans",
     },
     {
@@ -94,13 +156,25 @@ function ensureFontsRegistered() {
 
   for (const item of fontMap) {
     const abs = path.join(/*turbopackIgnore: true*/ root, item.relPath);
-    try {
-      GlobalFonts.registerFromPath(abs, item.family);
-    } catch {
-      // Ignore if already registered or missing in edge cases
+    if (syncFs.existsSync(/*turbopackIgnore: true*/ abs)) {
+      try {
+        GlobalFonts.registerFromPath(abs, item.family);
+      } catch {
+        // Ignore
+      }
     }
   }
-  fontsRegistered = true;
+
+  const hasOpenSans = GlobalFonts.has("Open Sans");
+  const hasMerriweather = GlobalFonts.has("Merriweather");
+
+  if (!hasOpenSans || !hasMerriweather) {
+    console.warn(
+      `[card-renderer] Font check: Open Sans = ${hasOpenSans}, Merriweather = ${hasMerriweather}`
+    );
+  } else {
+    fontsRegistered = true;
+  }
 }
 
 function drawRoundedRectPath(

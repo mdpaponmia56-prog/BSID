@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  outputFileTracingIncludes: {
+    "/api/**/*": [
+      "./assets/**/*",
+      "./public/**/*",
+    ],
+  },
   turbopack: {
     rules: {
       "*.css": {
